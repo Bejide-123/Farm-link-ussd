@@ -1,14 +1,16 @@
 import express from "express";
 const router = express.Router();
 
-console.log("📞 Incoming USSD Request:");
-console.log("Phone:", phoneNumber);
-console.log("Text:", text);
-console.log("Session:", sessionId);
-console.log("Service Code:", serviceCode);
+
 
 router.post("/", (req, res) => {
   const { text, phoneNumber, sessionId, serviceCode } = req.body;
+
+  console.log("📞 Incoming USSD Request:");
+  console.log("Phone:", phoneNumber);
+  console.log("Text:", text);
+  console.log("Session:", sessionId);
+  console.log("Service Code:", serviceCode);
 
   let response = "";
 
