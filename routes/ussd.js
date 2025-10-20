@@ -293,57 +293,57 @@ router.get("/buyers", (req, res) => {
 });
 
 export default router;
-```
 
-## 🎉 **ALL Features Included:**
 
-### ✅ **1. Registration** 
-- Farmers can register
-- Buyers can register
+// ## 🎉 **ALL Features Included:**
 
-### ✅ **2. Upload Crops**
-- Crop name, price, quantity, location
-- Full farmer details stored
+// ### ✅ **1. Registration** 
+// - Farmers can register
+// - Buyers can register
 
-### ✅ **3. Market Prices**
-- View all uploaded crops
-- See farmer contact info
-- Detailed crop information
+// ### ✅ **2. Upload Crops**
+// - Crop name, price, quantity, location
+// - Full farmer details stored
 
-### ✅ **4. Weather Information**
-- Today's weather
-- 3-day forecast
-- Rainfall alerts
+// ### ✅ **3. Market Prices**
+// - View all uploaded crops
+// - See farmer contact info
+// - Detailed crop information
 
-### ✅ **5. Farming Tips**
-- Planting season guide
-- Pest control advice
-- Fertilizer recommendations
-- Harvesting tips
+// ### ✅ **4. Weather Information**
+// - Today's weather
+// - 3-day forecast
+// - Rainfall alerts
 
-### ✅ **6. Buyer Connections**
-- View registered buyers
-- Farmers can connect with buyers
-- Post crop requests
+// ### ✅ **5. Farming Tips**
+// - Planting season guide
+// - Pest control advice
+// - Fertilizer recommendations
+// - Harvesting tips
 
-### ✅ **7. Multi-Language Support**
-- English
-- Hausa
-- Yoruba
-- Igbo
+// ### ✅ **6. Buyer Connections**
+// - View registered buyers
+// - Farmers can connect with buyers
+// - Post crop requests
 
-## 🎬 **Perfect Demo Flow for Judges:**
+// ### ✅ **7. Multi-Language Support**
+// - English
+// - Hausa
+// - Yoruba
+// - Igbo
 
-1. **Start**: "This is Mama Ngozi's phone..."
-2. **Register**: Show farmer registration
-3. **Upload Crop**: "She just harvested tomatoes..."
-4. **Weather**: "She checks if rain is coming..."
-5. **Farming Tips**: "She gets pest control advice..."
-6. **Market Prices**: "Buyers can see her crops..."
-7. **Multi-Language**: "Works in local languages too!"
+// ## 🎬 **Perfect Demo Flow for Judges:**
 
-## 📊 **Bonus API Endpoints:**
-```
+// 1. **Start**: "This is Mama Ngozi's phone..."
+// 2. **Register**: Show farmer registration
+// 3. **Upload Crop**: "She just harvested tomatoes..."
+// 4. **Weather**: "She checks if rain is coming..."
+// 5. **Farming Tips**: "She gets pest control advice..."
+// 6. **Market Prices**: "Buyers can see her crops..."
+// 7. **Multi-Language**: "Works in local languages too!"
+
+// ## 📊 **Bonus API Endpoints:**
+
 // GET /ussd/crops     → All uploaded crops
 // GET /ussd/farmers   → All registered farmers  
 // GET /ussd/buyers    → All registered buyers
