@@ -41,6 +41,7 @@ const router = express.Router();
 const crops = [];
 const farmers = {};
 const buyers = {};
+const userSessions = {}; // Track user role in current session
 
 router.post("/", (req, res) => {
   const { text, phoneNumber, sessionId, serviceCode } = req.body;
@@ -49,81 +50,72 @@ router.post("/", (req, res) => {
   console.log("Phone:", phoneNumber);
   console.log("Text:", text);
   console.log("Session:", sessionId);
-  console.log("Service Code:", serviceCode);
 
   let response = "";
 
-  // === MAIN MENU ===
+  // === INITIAL MENU - ASK USER TYPE ===
   if (text === "") {
-    response = "CON Welcome to FarmLink!\n1. Register\n2. Upload Crop\n3. View Market Prices\n4. Weather Info\n5. Farming Tips\n6. Connect with Buyers\n7. Change Language";
+    response = "CON Welcome to FarmLink!\nWho are you?\n\n1. Farmer\n2. Buyer";
   }
 
-  // === REGISTRATION FLOW ===
+  // ============================================
+  // FARMER SELECTED
+  // ============================================
   else if (text === "1") {
-    response = "CON Register as:\n1. Farmer\n2. Buyer";
+    userSessions[sessionId] = "farmer";
+    // Check if farmer is registered
+    if (farmers[phoneNumber]) {
+      response = `CON Welcome back, ${farmers[phoneNumber].name}!\n\n1. Upload Crop\n2. View Market Prices\n3. Weather Info\n4. Farming Tips\n5. My Crops\n0. Logout`;
+    } else {
+      response = "CON Farmer Registration\nEnter your name:";
+    }
   }
-  else if (text === "1*1") {
-    response = "CON Enter your name:";
-  }
-  else if (text.startsWith("1*1*") && text.split("*").length === 3) {
-    const name = text.split("*")[2];
+
+  // Farmer Registration
+  else if (text.startsWith("1*") && text.split("*").length === 2 && !farmers[phoneNumber]) {
+    const name = text.split("*")[1];
     if (name.trim()) {
-      farmers[phoneNumber] = { 
-        name: name.trim(), 
+      farmers[phoneNumber] = {
+        name: name.trim(),
         phone: phoneNumber,
         type: 'farmer',
         registered: new Date().toISOString()
       };
-      response = `END Thank you ${name}!\nYou are registered as a Farmer.\n\nYou can now upload crops and access farming tips.`;
-    } else {
-      response = "END Invalid name. Please try again.";
-    }
-  }
-  else if (text === "1*2") {
-    response = "CON Enter your name:";
-  }
-  else if (text.startsWith("1*2*") && text.split("*").length === 3) {
-    const name = text.split("*")[2];
-    if (name.trim()) {
-      buyers[phoneNumber] = { 
-        name: name.trim(), 
-        phone: phoneNumber,
-        type: 'buyer',
-        registered: new Date().toISOString()
-      };
-      response = `END Thank you ${name}!\nYou are registered as a Buyer.\n\nYou can now browse crops and connect with farmers.`;
+      response = `CON Welcome ${name}!\n\n1. Upload Crop\n2. View Market Prices\n3. Weather Info\n4. Farming Tips\n5. My Crops\n0. Logout`;
     } else {
       response = "END Invalid name. Please try again.";
     }
   }
 
-  // === UPLOAD CROP FLOW ===
-  else if (text === "2") {
+  // === FARMER MENU OPTIONS ===
+
+  // Upload Crop
+  else if (text === "1*1" || (text.startsWith("1*") && text.split("*")[1] === "1" && farmers[phoneNumber])) {
     response = "CON Upload Your Crop\nEnter crop name:\n(e.g., Tomatoes, Rice, Yam)";
   }
-  else if (text.startsWith("2*") && text.split("*").length === 2) {
-    const cropName = text.split("*")[1];
-    response = `CON Crop: ${cropName}\nEnter price per unit:\n(e.g., 15000)`;
+  else if (text.match(/^1\*\w+\*1\*\w+$/)) {
+    const cropName = text.split("*")[2];
+    response = `CON Crop: ${cropName}\nEnter price per unit:\n(in Naira)`;
   }
-  else if (text.startsWith("2*") && text.split("*").length === 3) {
+  else if (text.match(/^1\*\w+\*1\*\w+\*\d+$/)) {
     const parts = text.split("*");
-    const cropName = parts[1];
-    const price = parts[2];
+    const cropName = parts[2];
+    const price = parts[3];
     response = `CON Crop: ${cropName}\nPrice: ₦${price}\nEnter quantity:\n(e.g., 50 bags)`;
   }
-  else if (text.startsWith("2*") && text.split("*").length === 4) {
+  else if (text.match(/^1\*\w+\*1\*[\w\s]+\*\d+\*[\w\s]+$/)) {
     const parts = text.split("*");
-    const cropName = parts[1];
-    const price = parts[2];
-    const quantity = parts[3];
-    response = `CON Crop: ${cropName}\nPrice: ₦${price}\nQuantity: ${quantity}\nEnter location:\n(e.g., Kano, Lagos)`;
+    const cropName = parts[2];
+    const price = parts[3];
+    const quantity = parts[4];
+    response = `CON Crop: ${cropName}\nPrice: ₦${price}\nQuantity: ${quantity}\nEnter location:`;
   }
-  else if (text.startsWith("2*") && text.split("*").length === 5) {
+  else if (text.match(/^1\*\w+\*1\*[\w\s]+\*\d+\*[\w\s]+\*[\w\s]+$/)) {
     const parts = text.split("*");
-    const cropName = parts[1];
-    const price = parts[2];
-    const quantity = parts[3];
-    const location = parts[4];
+    const cropName = parts[2];
+    const price = parts[3];
+    const quantity = parts[4];
+    const location = parts[5];
 
     const newCrop = {
       id: crops.length + 1,
@@ -139,124 +131,182 @@ router.post("/", (req, res) => {
     crops.push(newCrop);
 
     console.log("🌾 New Crop Uploaded:", newCrop);
-
-    response = `END Crop uploaded successfully!\n\n${cropName}\n₦${price} per unit\n${quantity}\n${location}\n\nBuyers can now contact you!`;
+    response = `END Crop uploaded!\n\n${cropName}\n₦${price} per unit\n${quantity}\n${location}\n\nBuyers can now see it!`;
   }
 
-  // === VIEW MARKET PRICES ===
-  else if (text === "3") {
+  // View Market Prices (Farmer view)
+  else if (text === "1*2" || (text.match(/^1\*\w+\*2$/) && farmers[phoneNumber])) {
     if (crops.length === 0) {
-      response = "END No crops available yet.\n\nFarmers can upload crops via option 2.";
+      response = "END No crops in market yet.";
     } else {
-      let marketList = "CON Available Crops:\n\n";
-      const displayCrops = crops.slice(-5).reverse(); // Show last 5 crops
-      displayCrops.forEach((crop, index) => {
-        marketList += `${index + 1}. ${crop.name}\n   ₦${crop.price} - ${crop.quantity}\n   ${crop.location}\n\n`;
+      let marketList = "CON Market Prices:\n\n";
+      crops.slice(-5).reverse().forEach((crop, index) => {
+        marketList += `${index + 1}. ${crop.name} - ₦${crop.price}\n   ${crop.location}\n`;
       });
-      marketList += "0. Main Menu";
+      marketList += "\n0. Back";
       response = marketList;
     }
   }
-  else if (text.startsWith("3*") && text !== "3*0") {
-    const index = parseInt(text.split("*")[1]) - 1;
+
+  // Weather Info
+  else if (text === "1*3" || (text.match(/^1\*\w+\*3$/) && farmers[phoneNumber])) {
+    response = "CON Weather Forecast:\n\n1. Today\n2. 3-Day Forecast\n3. Rainfall Alert\n0. Back";
+  }
+  else if (text.match(/^1\*\w*\*3\*1$/)) {
+    response = "END Today's Weather:\n\n🌤️ Partly Cloudy\n🌡️ 28°C\n💧 Humidity: 65%\n🌧️ Rain: 20%\n\nGood for planting!";
+  }
+  else if (text.match(/^1\*\w*\*3\*2$/)) {
+    response = "END 3-Day Forecast:\n\nToday: 28°C Cloudy\nTomorrow: 26°C Rainy\nDay 3: 24°C Rainy\n\nPrepare for rain!";
+  }
+  else if (text.match(/^1\*\w*\*3\*3$/)) {
+    response = "END Rainfall Alert:\n\n⚠️ Heavy rain expected\nOct 22-23, 2025\n40-60mm\n\n✓ Harvest ready crops\n✓ Prepare drainage";
+  }
+
+  // Farming Tips
+  else if (text === "1*4" || (text.match(/^1\*\w+\*4$/) && farmers[phoneNumber])) {
+    response = "CON Farming Tips:\n\n1. Planting Guide\n2. Pest Control\n3. Fertilizer Guide\n4. Harvesting Tips\n0. Back";
+  }
+  else if (text.match(/^1\*\w*\*4\*1$/)) {
+    response = "END Planting Season:\n\n🌱 Best for Oct-Nov:\n- Maize\n- Tomatoes\n- Pepper\n\nRainy season!\nPlant early for best yield.";
+  }
+  else if (text.match(/^1\*\w*\*4\*2$/)) {
+    response = "END Pest Control:\n\n🐛 Common pests:\n- Aphids\n- Cutworms\n\nSolutions:\n✓ Neem oil\n✓ Crop rotation\n✓ Remove infected plants";
+  }
+  else if (text.match(/^1\*\w*\*4\*3$/)) {
+    response = "END Fertilizer Guide:\n\n🌾 Maize: NPK 15-15-15\n2 bags/hectare\n\n🍅 Tomatoes: NPK 12-12-17\n+ Organic compost\n\nApply every 3 weeks";
+  }
+  else if (text.match(/^1\*\w*\*4\*4$/)) {
+    response = "END Harvesting Tips:\n\n✓ Harvest early morning\n✓ Use clean tools\n✓ Handle with care\n✓ Sort by quality\n✓ Store cool\n\nProper handling = Better price!";
+  }
+
+  // My Crops (Farmer's uploaded crops)
+  else if (text === "1*5" || (text.match(/^1\*\w+\*5$/) && farmers[phoneNumber])) {
+    const myCrops = crops.filter(crop => crop.farmerPhone === phoneNumber);
+    if (myCrops.length === 0) {
+      response = "END You haven't uploaded any crops yet.\n\nUse option 1 to upload!";
+    } else {
+      let myCropsList = "END Your Crops:\n\n";
+      myCrops.forEach((crop, index) => {
+        myCropsList += `${index + 1}. ${crop.name}\n   ₦${crop.price} - ${crop.quantity}\n   ${crop.location}\n\n`;
+      });
+      response = myCropsList;
+    }
+  }
+
+  // ============================================
+  // BUYER SELECTED
+  // ============================================
+  else if (text === "2") {
+    userSessions[sessionId] = "buyer";
+    // Check if buyer is registered
+    if (buyers[phoneNumber]) {
+      response = `CON Welcome back, ${buyers[phoneNumber].name}!\n\n1. Browse Crops\n2. Search by Location\n3. Search by Crop\n4. My Orders\n0. Logout`;
+    } else {
+      response = "CON Buyer Registration\nEnter your name:";
+    }
+  }
+
+  // Buyer Registration
+  else if (text.startsWith("2*") && text.split("*").length === 2 && !buyers[phoneNumber]) {
+    const name = text.split("*")[1];
+    if (name.trim()) {
+      buyers[phoneNumber] = {
+        name: name.trim(),
+        phone: phoneNumber,
+        type: 'buyer',
+        registered: new Date().toISOString()
+      };
+      response = `CON Welcome ${name}!\n\n1. Browse Crops\n2. Search by Location\n3. Search by Crop\n4. My Orders\n0. Logout`;
+    } else {
+      response = "END Invalid name. Please try again.";
+    }
+  }
+
+  // === BUYER MENU OPTIONS ===
+
+  // Browse Crops
+  else if (text === "2*1" || (text.match(/^2\*\w+\*1$/) && buyers[phoneNumber])) {
+    if (crops.length === 0) {
+      response = "END No crops available yet.\n\nCheck back soon!";
+    } else {
+      let cropList = "CON Available Crops:\n\n";
+      const displayCrops = crops.slice(-5).reverse();
+      displayCrops.forEach((crop, index) => {
+        cropList += `${index + 1}. ${crop.name}\n   ₦${crop.price} - ${crop.location}\n`;
+      });
+      cropList += "\nSelect for details\n0. Back";
+      response = cropList;
+    }
+  }
+
+  // View specific crop details
+  else if (text.match(/^2\*\w*\*1\*[1-5]$/)) {
+    const index = parseInt(text.split("*")[2]) - 1;
     const displayCrops = crops.slice(-5).reverse();
     const selectedCrop = displayCrops[index];
-    
+
     if (selectedCrop) {
-      response = `CON ${selectedCrop.name}\n\nPrice: ₦${selectedCrop.price}\nQuantity: ${selectedCrop.quantity}\nLocation: ${selectedCrop.location}\nFarmer: ${selectedCrop.farmerName}\nPhone: ${selectedCrop.farmerPhone}\n\n0. Back`;
+      response = `END ${selectedCrop.name}\n\nPrice: ₦${selectedCrop.price}\nQuantity: ${selectedCrop.quantity}\nLocation: ${selectedCrop.location}\n\nFarmer: ${selectedCrop.farmerName}\nContact: ${selectedCrop.farmerPhone}\n\nCall farmer to order!`;
     } else {
       response = "END Invalid selection.";
     }
   }
-  else if (text === "3*0") {
-    response = "CON Welcome to FarmLink!\n1. Register\n2. Upload Crop\n3. View Market Prices\n4. Weather Info\n5. Farming Tips\n6. Connect with Buyers\n7. Change Language";
-  }
 
-  // === WEATHER INFORMATION ===
-  else if (text === "4") {
-    response = "CON Weather Forecast:\n1. Today\n2. 3-Day Forecast\n3. Rainfall Alert\n0. Main Menu";
+  // Search by Location
+  else if (text === "2*2" || (text.match(/^2\*\w+\*2$/) && buyers[phoneNumber])) {
+    response = "CON Enter location:\n(e.g., Kano, Lagos, Kaduna)";
   }
-  else if (text === "4*1") {
-    response = "END Weather Today:\n\n🌤️ Partly Cloudy\n🌡️ Temp: 28°C\n💧 Humidity: 65%\n🌧️ Rain: 20% chance\n\nGood day for planting!";
-  }
-  else if (text === "4*2") {
-    response = "END 3-Day Forecast:\n\nToday: 28°C Partly Cloudy\nTomorrow: 26°C Cloudy\nDay 3: 24°C Rainy\n\nPrepare for rain in 2 days!";
-  }
-  else if (text === "4*3") {
-    response = "END Rainfall Alert:\n\n⚠️ Heavy rain expected\nDate: Oct 22-23, 2025\nAmount: 40-60mm\n\nAdvice:\n- Harvest ready crops\n- Prepare drainage\n- Store harvested items";
-  }
-  else if (text === "4*0") {
-    response = "CON Welcome to FarmLink!\n1. Register\n2. Upload Crop\n3. View Market Prices\n4. Weather Info\n5. Farming Tips\n6. Connect with Buyers\n7. Change Language";
-  }
+  else if (text.match(/^2\*\w*\*2\*[\w\s]+$/)) {
+    const location = text.split("*")[2];
+    const locationCrops = crops.filter(crop => 
+      crop.location.toLowerCase().includes(location.toLowerCase())
+    );
 
-  // === FARMING TIPS ===
-  else if (text === "5") {
-    response = "CON Farming Tips:\n1. Planting Season\n2. Pest Control\n3. Fertilizer Guide\n4. Harvesting Tips\n0. Main Menu";
-  }
-  else if (text === "5*1") {
-    response = "END Planting Season Guide:\n\n🌱 Best crops for Oct-Nov:\n- Maize\n- Tomatoes\n- Pepper\n- Vegetables\n\nRainy season starting!\nPlant early for best yield.";
-  }
-  else if (text === "5*2") {
-    response = "END Pest Control Tips:\n\n🐛 Common pests this season:\n- Aphids\n- Cutworms\n\nSolutions:\n✓ Neem oil spray\n✓ Crop rotation\n✓ Remove infected plants\n\nOrganic methods preferred!";
-  }
-  else if (text === "5*3") {
-    response = "END Fertilizer Guide:\n\n🌾 For Maize:\nNPK 15-15-15\n2 bags per hectare\n\n🍅 For Tomatoes:\nNPK 12-12-17\n+ Organic compost\n\nApply every 3 weeks.";
-  }
-  else if (text === "5*4") {
-    response = "END Harvesting Tips:\n\n✓ Harvest early morning\n✓ Use clean tools\n✓ Handle with care\n✓ Sort by quality\n✓ Store in cool place\n\nProper handling = Better price!";
-  }
-  else if (text === "5*0") {
-    response = "CON Welcome to FarmLink!\n1. Register\n2. Upload Crop\n3. View Market Prices\n4. Weather Info\n5. Farming Tips\n6. Connect with Buyers\n7. Change Language";
-  }
-
-  // === CONNECT WITH BUYERS ===
-  else if (text === "6") {
-    const buyerCount = Object.keys(buyers).length;
-    response = `CON Connect with Buyers\n\nRegistered Buyers: ${buyerCount}\n\n1. View Interested Buyers\n2. Post Crop Request\n0. Main Menu`;
-  }
-  else if (text === "6*1") {
-    if (Object.keys(buyers).length === 0) {
-      response = "END No buyers registered yet.\n\nCheck back soon!";
+    if (locationCrops.length === 0) {
+      response = `END No crops found in ${location}.\n\nTry another location!`;
     } else {
-      let buyerList = "END Active Buyers:\n\n";
-      const buyerArray = Object.values(buyers).slice(0, 3);
-      buyerArray.forEach((buyer, index) => {
-        buyerList += `${index + 1}. ${buyer.name}\n   ${buyer.phone}\n\n`;
+      let locationList = `END Crops in ${location}:\n\n`;
+      locationCrops.slice(0, 5).forEach((crop, index) => {
+        locationList += `${index + 1}. ${crop.name} - ₦${crop.price}\n   ${crop.farmerName}: ${crop.farmerPhone}\n\n`;
       });
-      buyerList += "Contact them directly!";
-      response = buyerList;
+      response = locationList;
     }
   }
-  else if (text === "6*2") {
-    response = "END Post your crops via:\n'Upload Crop' (Option 2)\n\nBuyers will see your listing in the market!";
+
+  // Search by Crop
+  else if (text === "2*3" || (text.match(/^2\*\w+\*3$/) && buyers[phoneNumber])) {
+    response = "CON Enter crop name:\n(e.g., Tomatoes, Rice, Maize)";
   }
-  else if (text === "6*0") {
-    response = "CON Welcome to FarmLink!\n1. Register\n2. Upload Crop\n3. View Market Prices\n4. Weather Info\n5. Farming Tips\n6. Connect with Buyers\n7. Change Language";
+  else if (text.match(/^2\*\w*\*3\*[\w\s]+$/)) {
+    const cropName = text.split("*")[2];
+    const cropResults = crops.filter(crop =>
+      crop.name.toLowerCase().includes(cropName.toLowerCase())
+    );
+
+    if (cropResults.length === 0) {
+      response = `END No ${cropName} found.\n\nTry another crop!`;
+    } else {
+      let cropList = `END ${cropName} Available:\n\n`;
+      cropResults.slice(0, 5).forEach((crop, index) => {
+        cropList += `${index + 1}. ₦${crop.price} - ${crop.quantity}\n   ${crop.location}\n   ${crop.farmerName}: ${crop.farmerPhone}\n\n`;
+      });
+      response = cropList;
+    }
   }
 
-  // === MULTI-LANGUAGE ===
-  else if (text === "7") {
-    response = "CON Select Language:\n1. English\n2. Hausa\n3. Yoruba\n4. Igbo\n0. Main Menu";
+  // My Orders (placeholder)
+  else if (text === "2*4" || (text.match(/^2\*\w+\*4$/) && buyers[phoneNumber])) {
+    response = "END My Orders:\n\nNo orders yet.\n\nContact farmers directly via Browse Crops to place orders!";
   }
-  else if (text === "7*1") {
-    response = "END Language set to English!\n\nAll messages will now appear in English.";
-  }
-  else if (text === "7*2") {
-    response = "END Harshe an saita zuwa Hausa!\n\n(Language set to Hausa)\n\nDuk saƙonni yanzu za su bayyana cikin Hausa.";
-  }
-  else if (text === "7*3") {
-    response = "END Ede ti ṣeto si Yoruba!\n\n(Language set to Yoruba)\n\nGbogbo awọn ifiranṣẹ yoo han ni Yoruba.";
-  }
-  else if (text === "7*4") {
-    response = "END Asụsụ etinyere na Igbo!\n\n(Language set to Igbo)\n\nOzi niile ga-apụta na Igbo.";
-  }
-  else if (text === "7*0") {
-    response = "CON Welcome to FarmLink!\n1. Register\n2. Upload Crop\n3. View Market Prices\n4. Weather Info\n5. Farming Tips\n6. Connect with Buyers\n7. Change Language";
+
+  // === LOGOUT ===
+  else if (text.match(/\*0$/)) {
+    response = "END Thank you for using FarmLink!\n\nDial again anytime. 🌾";
   }
 
   // === INVALID INPUT ===
   else {
-    response = "END Invalid choice.\n\nPlease dial again and select a valid option.";
+    response = "END Invalid choice.\n\nPlease dial again.";
   }
 
   console.log("📤 Response:", response);
@@ -265,7 +315,7 @@ router.post("/", (req, res) => {
   res.send(response);
 });
 
-// API endpoint to view all crops
+// API endpoints
 router.get("/crops", (req, res) => {
   res.json({
     success: true,
@@ -274,7 +324,6 @@ router.get("/crops", (req, res) => {
   });
 });
 
-// API endpoint to view all farmers
 router.get("/farmers", (req, res) => {
   res.json({
     success: true,
@@ -283,7 +332,6 @@ router.get("/farmers", (req, res) => {
   });
 });
 
-// API endpoint to view all buyers
 router.get("/buyers", (req, res) => {
   res.json({
     success: true,
@@ -295,55 +343,27 @@ router.get("/buyers", (req, res) => {
 export default router;
 
 
-// ## 🎉 **ALL Features Included:**
+// ## 🎯 **How It Works Now:**
 
-// ### ✅ **1. Registration** 
-// - Farmers can register
-// - Buyers can register
+// ### **First Time User:**
+// 1. Dial `*384*1234#`
+// 2. "Who are you? 1. Farmer 2. Buyer"
+// 3. Select role → Register → See personalized menu
 
-// ### ✅ **2. Upload Crops**
-// - Crop name, price, quantity, location
-// - Full farmer details stored
+// ### **Farmer Menu:**
 
-// ### ✅ **3. Market Prices**
-// - View all uploaded crops
-// - See farmer contact info
-// - Detailed crop information
+// 1. Upload Crop
+// 2. View Market Prices
+// 3. Weather Info
+// 4. Farming Tips
+// 5. My Crops
+// 0. Logout
+// ```
 
-// ### ✅ **4. Weather Information**
-// - Today's weather
-// - 3-day forecast
-// - Rainfall alerts
+// ### **Buyer Menu:**
 
-// ### ✅ **5. Farming Tips**
-// - Planting season guide
-// - Pest control advice
-// - Fertilizer recommendations
-// - Harvesting tips
-
-// ### ✅ **6. Buyer Connections**
-// - View registered buyers
-// - Farmers can connect with buyers
-// - Post crop requests
-
-// ### ✅ **7. Multi-Language Support**
-// - English
-// - Hausa
-// - Yoruba
-// - Igbo
-
-// ## 🎬 **Perfect Demo Flow for Judges:**
-
-// 1. **Start**: "This is Mama Ngozi's phone..."
-// 2. **Register**: Show farmer registration
-// 3. **Upload Crop**: "She just harvested tomatoes..."
-// 4. **Weather**: "She checks if rain is coming..."
-// 5. **Farming Tips**: "She gets pest control advice..."
-// 6. **Market Prices**: "Buyers can see her crops..."
-// 7. **Multi-Language**: "Works in local languages too!"
-
-// ## 📊 **Bonus API Endpoints:**
-
-// GET /ussd/crops     → All uploaded crops
-// GET /ussd/farmers   → All registered farmers  
-// GET /ussd/buyers    → All registered buyers
+// 1. Browse Crops
+// 2. Search by Location
+// 3. Search by Crop
+// 4. My Orders
+// 0. Logout
